@@ -1,0 +1,141 @@
+class Animal:
+    def __init__(self, name):
+        self.name = name
+
+    def speak(self):
+        print(f"{self.name} makes a noise.")
+
+# Extending the Animal class
+class Dog(Animal):
+    def speak(self):
+        # Optional: Call the parent method using super()
+        super().speak() 
+        print(f"{self.name} barks!")
+
+my_dog = Dog("Rex")
+my_dog.speak()
+
+--------
+@mcp.tool()
+def place_order(symbol: str, qty: int, order_type: str = "market"):
+    if qty <= 0:
+        return "Error: Quantity must be positive."
+    # Integration with broker (IBKR, Alpaca, etc.) goes here
+    return f"Order placed for {qty} shares of {symbol}."
+
+------
+from mcp.server.fastmcp import FastMCP
+from typing import Optional, List, Dict
+
+mcp = FastMCP("FinanceService")
+
+# --- Asset Class Interface ---
+
+@mcp.tool()
+def get_quote(asset_class: str, symbol: str) -> str:
+    """
+    Retrieves current market price and volume for an asset.
+    :param asset_class: One of 'fx', 'stock', 'etf', 'option', 'future'
+    :param symbol: e.g., 'AAPL' (stock), 'EURUSD' (fx), 'ESH24' (future)
+    """
+    # Logic to route to specific API/Database based on asset_class
+    return f"Fetching {asset_class} quote for {symbol}..."
+
+@mcp.tool()
+def get_option_chain(underlying: str, expiration: str) -> List[Dict]:
+    """Fetches the option chain for a specific underlying stock."""
+    return [{"strike": 150, "type": "call", "bid": 2.5, "ask": 2.6}]
+
+@mcp.tool()
+def get_future_specs(symbol: str) -> str:
+    """Returns contract size, tick value, and margin for a future."""
+    return f"Specs for {symbol}: Contract size 50, Tick value $12.50"
+
+# --- Resources (Read-only Data) ---
+
+@mcp.resource("finance://market-status")
+def get_market_status() -> str:
+    """Returns whether major markets (NYSE, CME, Forex) are open."""
+    return "NYSE: Open | CME: Open | FX: Open (24h)"
+
+if __name__ == "__main__":
+    mcp.run()
+
+
+
+
+
+
+
+.......................................
+
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("AssetManager")
+
+@mcp.tool()
+def fetch_product_data(asset_type: str, symbol: str) -> str:
+    """Entry point for AI to query any asset class."""
+    
+    # Factory logic to pick the right class
+    if asset_type == "fx":
+        product = FXProduct(symbol)
+    elif asset_type == "stock":
+        product = StockProduct(symbol)
+    elif asset_type == "option":
+        # Simplified for example
+        product = OptionProduct(symbol, 150.0, "2026-06", "call")
+    else:
+        return "Unsupported asset type."
+
+    quote = product.get_quote()
+    hours = product.get_market_hours()
+    return f"Data for {symbol}: {quote} | Trading Hours: {hours}"
+
+if __name__ == "__main__":
+    mcp.run()
+
+
+.................................
+class FXProduct(FinancialProduct):
+    def get_quote(self):
+        # Implementation for pair like EUR/USD
+        return {"bid": 1.0850, "ask": 1.0852, "spread": 0.0002}
+
+    def get_market_hours(self):
+        return "24/5 (Sunday 5PM - Friday 5PM EST)"
+
+class StockProduct(FinancialProduct):
+    def __init__(self, symbol: str, exchange: str = "NYSE"):
+        super().__init__(symbol)
+        self.exchange = exchange
+
+    def get_quote(self):
+        return {"price": 150.25, "volume": 1200000}
+
+    def get_market_hours(self):
+        return "9:30 AM - 4:00 PM EST"
+
+class OptionProduct(FinancialProduct):
+    def __init__(self, symbol: str, strike: float, expiry: str, option_type: str):
+        super().__init__(symbol)
+        self.strike = strike
+        self.expiry = expiry
+        self.option_type = option_type # 'call' or 'put'
+
+    def get_quote(self):
+        return {"premium": 4.50, "delta": 0.55, "theta": -0.02}
+
+    def get_market_hours(self):
+        return "9:30 AM - 4:00 PM EST"
+
+class FutureProduct(FinancialProduct):
+    def __init__(self, symbol: str, multiplier: int):
+        super().__init__(symbol)
+        self.multiplier = multiplier
+
+    def get_quote(self):
+        return {"last_price": 5100.75, "tick_size": 0.25}
+
+    def get_market_hours(self):
+        return "23/6 (CME Group Schedule)"
