@@ -1,6 +1,13 @@
 
+import sys
+from pathlib import Path
+# Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from dataclasses import dataclass, field
 from typing import Optional, List, Any
+from utils.load_utils import load_json_data
+from products.base_product import BaseProduct
 
 @dataclass
 class FXSchema:
@@ -75,15 +82,43 @@ class FXSchema:
     def bulk(data: list):
         return [FXSchema.from_dict(item) for item in data]
 
-class FXProduct:
+class FXProduct(BaseProduct):
     def __init__(self):
-        # load product details from a json file ./data/fx.json of schema FXSchema
-        import json 
-        with open("./data/fx.json", "r") as f:
-            raw = json.load(f)
-            self.data = FXSchema.bulk(raw.get('fx', []))
+        super().__init__("FX")
+        self.data: List[FXSchema] = load_json_data("fx.json", lambda_func=lambda d: FXSchema.bulk(d.get('fx', [])))
         print(f"Loaded {len(self.data)} FX products from ./data/fx.json")
+        
+        # Register tools
+        self.register_tool("get_all", self.get_all_data, "Get all FX pairs")
+        self.register_tool("get_by_pair", self.get_data_by_pair, "Get FX data by pair")
+        self.register_tool("get_quote", self.get_quote, "Get FX quote for currency pair")
     
     def get_schema(self) -> set:
         return set(FXSchema.__annotations__.keys())
     
+    def get_all_data(self) -> List[FXSchema]:
+        return self.data
+    
+    def get_data_by_pair(self, pair: str) -> Optional[FXSchema]:
+        for item in self.data:
+            if item.pair == pair:
+                return item
+        return None
+    
+    def get_quote(self, base_ccy: str, over_ccy: str) -> dict:
+        for item in self.data:
+            if item.base_currency == base_ccy and item.quote_currency == over_ccy:
+                return {
+                    "base_currency": item.base_currency,
+                    "quote_currency": item.quote_currency,
+                    "bid": item.bid,
+                    "ask": item.ask
+                }
+            elif item.base_currency == over_ccy and item.quote_currency == base_ccy:
+                return {
+                    "base_currency": over_ccy,
+                    "quote_currency": base_ccy,
+                    "bid": 1/item.ask if item.ask else None,
+                    "ask": 1/item.bid if item.bid else None
+                }
+        return None
